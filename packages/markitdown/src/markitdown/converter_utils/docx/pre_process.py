@@ -129,6 +129,10 @@ def pre_process_docx(input_docx: BinaryIO) -> BinaryIO:
     Returns:
         BinaryIO: A binary output stream representing the processed DOCX file.
     """
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info("[PRE-PROCESS] Starting pre_process_docx")
+
     output_docx = BytesIO()
     # The files that need to be pre-processed from .docx
     pre_process_enable_files = [
@@ -137,20 +141,26 @@ def pre_process_docx(input_docx: BinaryIO) -> BinaryIO:
         "word/endnotes.xml",
     ]
     with zipfile.ZipFile(input_docx, mode="r") as zip_input:
+        logger.info(f"[PRE-PROCESS] Opened zip, files: {zip_input.namelist()}")
         files = {name: zip_input.read(name) for name in zip_input.namelist()}
+        logger.info(f"[PRE-PROCESS] Read {len(files)} files from zip")
         with zipfile.ZipFile(output_docx, mode="w") as zip_output:
             zip_output.comment = zip_input.comment
             for name, content in files.items():
                 if name in pre_process_enable_files:
                     try:
+                        logger.info(f"[PRE-PROCESS] Processing math in: {name}")
                         # Pre-process the content
                         updated_content = _pre_process_math(content)
                         # In the future, if there are more pre-processing steps, they can be added here
                         zip_output.writestr(name, updated_content)
-                    except Exception:
+                        logger.info(f"[PRE-PROCESS] Completed processing: {name}, size: {len(updated_content)}")
+                    except Exception as e:
+                        logger.warning(f"[PRE-PROCESS] Error processing {name}: {e}, using original")
                         # If there is an error in processing the content, write the original content
                         zip_output.writestr(name, content)
                 else:
                     zip_output.writestr(name, content)
     output_docx.seek(0)
+    logger.info(f"[PRE-PROCESS] Completed pre_process_docx, output size: {output_docx.getbuffer().nbytes}")
     return output_docx

@@ -76,8 +76,25 @@ class DocxConverter(HtmlConverter):
             )
 
         style_map = kwargs.get("style_map", None)
+        progress_callback = kwargs.get("progress_callback", None)
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"[MARKITDOWN-DOCX] About to call pre_process_docx")
         pre_process_stream = pre_process_docx(file_stream)
+        logger.info(f"[MARKITDOWN-DOCX] pre_process_docx returned, stream position: {pre_process_stream.tell()}")
+
+        # Build mammoth kwargs
+        mammoth_kwargs = {"style_map": style_map} if style_map else {}
+        if progress_callback:
+            mammoth_kwargs["progress_callback"] = progress_callback
+
+        logger.info(f"[MARKITDOWN-DOCX] About to call mammoth.convert_to_html, progress_callback={progress_callback is not None}")
+
+        mammoth_result = mammoth.convert_to_html(pre_process_stream, **mammoth_kwargs)
+        html_content = mammoth_result.value
+        logger.info(f"[MARKITDOWN-DOCX] mammoth.convert_to_html returned, html length: {len(html_content)}")
+
         return self._html_converter.convert_string(
-            mammoth.convert_to_html(pre_process_stream, style_map=style_map).value,
+            html_content,
             **kwargs,
         )
